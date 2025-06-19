@@ -19,7 +19,8 @@ const submitLead = (req, res) => {
 
   let resume_path = null;
   if (resume) {
-    resume_path = path.join('uploads', resume.filename);
+    // Use absolute path for Railway/Render
+    resume_path = path.join('/tmp/uploads', resume.filename);
   }
   // Check resume for BTech/MTech if uploaded
   if (resume_path) {
