@@ -1,0 +1,4 @@
+candidate_id,name,email
+1,John Doe,john@example.com
+2,Jane Smith,jane@example.com
+// ...more rows...
