@@ -2,8 +2,10 @@
 
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+require('dotenv').config();
 
-const dbPath = path.resolve(__dirname, '../data/database.sqlite');
+// Use DB_PATH from environment or default to /tmp/database.sqlite for Railway
+const dbPath = process.env.DB_PATH || path.resolve('/tmp/database.sqlite');
 const db = new sqlite3.Database(dbPath);
 
 // Table creation logic here
