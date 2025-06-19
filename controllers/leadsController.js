@@ -78,7 +78,9 @@ const getDashboard = (req, res) => {
       console.error('Dashboard DB error:', err);
       return res.status(500).json({ error: 'Database error' });
     }
-    res.json({ count: leads.length, leads });
+    // Count only qualified leads
+    const qualifiedLeadsCount = leads.filter(l => l.status && l.status.toLowerCase().includes('qualified')).length;
+    res.json({ qualifiedLeadsCount, leads });
   });
 };
 
