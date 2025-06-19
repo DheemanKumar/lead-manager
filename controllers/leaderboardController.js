@@ -10,7 +10,10 @@ const getTop = (req, res) => {
           GROUP BY users.id
           ORDER BY total_earnings DESC
           LIMIT 10`, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
+    if (err) {
+      console.error('Leaderboard getTop DB error:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
     res.json({ leaderboard: rows });
   });
 };
@@ -22,7 +25,10 @@ const getLeaderboard = (req, res) => {
           JOIN users ON leads.submitted_by = users.email
           GROUP BY users.id
           ORDER BY lead_count DESC`, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
+    if (err) {
+      console.error('Leaderboard getLeaderboard DB error:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
     res.json({ leaderboard: rows });
   });
 };
