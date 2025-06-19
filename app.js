@@ -40,6 +40,20 @@ app.get('/api/download-db', (req, res) => {
   }
 });
 
+// Debug route to list all users and leads
+app.get('/api/debug-data', async (req, res) => {
+  const { db } = require('./models/db');
+  db.serialize(() => {
+    db.all('SELECT * FROM users', (err, users) => {
+      if (err) return res.status(500).json({ error: 'DB error (users)' });
+      db.all('SELECT * FROM leads', (err2, leads) => {
+        if (err2) return res.status(500).json({ error: 'DB error (leads)' });
+        res.json({ users, leads });
+      });
+    });
+  });
+});
+
 // Middleware, routes, etc. will be added here
 
 module.exports = app;
