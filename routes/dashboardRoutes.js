@@ -1,9 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const leadsController = require('../controllers/leadsController');
 const auth = require('../middleware/auth');
+const dashboardController = require('../controllers/dashboardController');
 
-// GET /api/leads - list all leads submitted by the user
-router.get('/', auth, leadsController.getUserLeads);
+// GET /api/dashboard/ - return details of user
+router.get('/', auth, dashboardController.getUserDetails);
+
+// GET /api/dashboard/admin - return details of admin
+router.get('/admin', auth, dashboardController.getAdminDetails);
 
 module.exports = router;

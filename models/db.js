@@ -1,41 +1,36 @@
-// SQLite setup and table creation
+// PostgreSQL setup for Railway/production
+const { Pool } = require('pg');
 
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
-require('dotenv').config();
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: false } : false
+});
 
-// Use DB_PATH from environment or default to /tmp/database.sqlite for Railway
-const dbPath = process.env.DB_PATH || path.resolve('/tmp/database.sqlite');
-const db = new sqlite3.Database(dbPath);
-
-// Table creation logic here
-function initDB() {
-  db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+// Table creation logic for PostgreSQL
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
       name TEXT,
       email TEXT UNIQUE,
-      employee_id TEXT,
-      password TEXT
-    )`);
-    db.run(`CREATE TABLE IF NOT EXISTS leads (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      candidate_id INTEGER,
+      employee_id TEXT UNIQUE,
+      password TEXT,
+      is_admin BOOLEAN DEFAULT FALSE,
+      earning INTEGER DEFAULT 0
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS leads (
+      id SERIAL PRIMARY KEY,
       name TEXT,
       mobile TEXT,
       email TEXT,
       submitted_by TEXT,
       resume_path TEXT,
       status TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-    db.run(`CREATE TABLE IF NOT EXISTS earnings (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,
-      amount INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-  });
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
 }
 
-module.exports = { db, initDB };
+module.exports = { pool, initDB };

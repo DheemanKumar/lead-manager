@@ -3,7 +3,7 @@
 const app = require('./app');
 const { initDB } = require('./models/db');
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 initDB();
 
 app.listen(PORT, () => {

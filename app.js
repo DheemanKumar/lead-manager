@@ -5,6 +5,9 @@ const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
 const leadRoutes = require('./routes/leadRoutes');
 const leaderboardRoutes = require('./routes/leaderboardRoutes');
+const utilityRoutes = require('./routes/utilityRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const earningRoutes = require('./routes/earningRoutes');
 const fs = require('fs');
 const path = require('path');
 
@@ -23,36 +26,10 @@ if (!fs.existsSync(uploadsDir)) {
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/leads', leadRoutes);
+app.use('/api/dashboard', dashboardRoutes); // Mount dashboard routes at /api/dashboard
 app.use('/api/leaderboard', leaderboardRoutes);
-
-// Route to download the SQLite DB file
-app.get('/api/download-db', (req, res) => {
-  const dbPath = process.env.DB_PATH || '/tmp/database.sqlite';
-  if (fs.existsSync(dbPath)) {
-    res.download(dbPath, 'database.sqlite', err => {
-      if (err) {
-        console.error('DB download error:', err);
-        res.status(500).json({ error: 'Could not download database' });
-      }
-    });
-  } else {
-    res.status(404).json({ error: 'Database file not found' });
-  }
-});
-
-// Debug route to list all users and leads
-app.get('/api/debug-data', async (req, res) => {
-  const { db } = require('./models/db');
-  db.serialize(() => {
-    db.all('SELECT * FROM users', (err, users) => {
-      if (err) return res.status(500).json({ error: 'DB error (users)' });
-      db.all('SELECT * FROM leads', (err2, leads) => {
-        if (err2) return res.status(500).json({ error: 'DB error (leads)' });
-        res.json({ users, leads });
-      });
-    });
-  });
-});
+app.use('/api', utilityRoutes);
+app.use('/api/earning', earningRoutes);
 
 // Middleware, routes, etc. will be added here
 

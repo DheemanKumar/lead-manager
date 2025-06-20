@@ -1,17 +1,19 @@
-const { db } = require('../models/db');
-
-// List all leads submitted by the logged-in user
-const getUserLeads = (req, res) => {
-  if (!req.user || !req.user.email) {
+const getUserDetails = (req, res) => {
+  if (!req.user) {
     return res.status(401).json({ error: 'Authentication required' });
   }
-  db.all('SELECT * FROM leads WHERE submitted_by = ?', [req.user.email], (err, leads) => {
-    if (err) {
-      console.error('Dashboard getUserLeads DB error:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    res.json({ count: leads.length, leads });
-  });
+  // Exclude sensitive info if needed
+  const { password, ...userDetails } = req.user;
+  res.json({ user: userDetails });
 };
 
-module.exports = { getUserLeads };
+const getAdminDetails = (req, res) => {
+  if (!req.user || !req.user.is_admin) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  // Exclude sensitive info if needed
+  const { password, ...adminDetails } = req.user;
+  res.json({ admin: adminDetails });
+};
+
+module.exports = { getUserDetails, getAdminDetails };
