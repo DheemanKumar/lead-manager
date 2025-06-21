@@ -82,9 +82,9 @@ const submitLead = async (req, res) => {
 
   // Save the lead in all cases
   await pool.query(
-    `INSERT INTO leads (name, mobile, email, degree, course, college, year_of_passing, submitted_by, resume_path, copy, eligibility, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-    [name, mobile, email, degree, course, college, year_of_passing, submitted_by, resume_path, copy, eligibility, 'submitted']
+    `INSERT INTO leads (name, mobile, email, degree, course, college, year_of_passing, submitted_by, resume_path, downloded, copy, eligibility, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+    [name, mobile, email, degree, course, college, year_of_passing, submitted_by, resume_path, false, copy, eligibility, 'submitted']
   );
 
   // If eligible and not a copy, add 50 to user's earning
@@ -141,6 +141,8 @@ const adminDownloadResume = async (req, res) => {
     if (!row || !row.resume_path) {
       return res.status(404).json({ error: 'Resume not found for this lead' });
     }
+    // Mark the lead as downloaded
+    await pool.query('UPDATE leads SET downloded = true WHERE id = $1', [leadId]);
     // Optionally, generate a signed/public URL from Supabase here
     res.json({ resume_path: row.resume_path });
   } catch (err) {
@@ -170,6 +172,35 @@ const adminDownloadAllResumes = (req, res) => {
     });
     archive.finalize();
   });
+};
+
+// Admin download only resumes that are not yet downloaded
+const adminDownloadNewResume = async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, resume_path FROM leads WHERE resume_path IS NOT NULL AND downloded = false');
+    const rows = result.rows;
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ error: 'No new resumes to download' });
+    }
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="new_resumes.zip"');
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    archive.pipe(res);
+    for (const row of rows) {
+      const filePath = path.resolve(__dirname, '..', row.resume_path);
+      const fileName = row.resume_path.split('/').pop();
+      archive.file(filePath, { name: fileName });
+    }
+    archive.finalize();
+    // Mark all these leads as downloaded
+    const ids = rows.map(r => r.id);
+    if (ids.length > 0) {
+      await pool.query('UPDATE leads SET downloded = true WHERE id = ANY($1)', [ids]);
+    }
+  } catch (err) {
+    console.error('DB error in adminDownloadNewResume:', err);
+    return res.status(500).json({ error: 'Database error' });
+  }
 };
 
 // Admin update lead status
@@ -263,6 +294,7 @@ module.exports = {
   getDashboard,
   adminDownloadResume,
   adminDownloadAllResumes,
+  adminDownloadNewResume,
   adminUpdateStatus,
   adminGetAllLeads
 };

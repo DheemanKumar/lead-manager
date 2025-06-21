@@ -31,6 +31,7 @@ async function initDB() {
   year_of_passing TEXT,
   submitted_by TEXT,
   resume_path TEXT,
+  downloded boolean DEFAULT false,
   copy BOOLEAN DEFAULT FALSE,
   eligibility BOOLEAN DEFAULT true,
   status TEXT,

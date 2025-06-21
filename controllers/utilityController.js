@@ -26,31 +26,32 @@ const resetSchema = async (req, res) => {
   try {
     // Drop and recreate tables
     await pool.query('DROP TABLE IF EXISTS leads CASCADE');
-    await pool.query('DROP TABLE IF EXISTS users CASCADE');
-    await pool.query(`CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
-      name TEXT,
-      email TEXT UNIQUE,
-      employee_id TEXT UNIQUE,
-      password TEXT,
-      is_admin BOOLEAN DEFAULT FALSE,
-      earning INTEGER DEFAULT 0
-    )`);
+    // await pool.query('DROP TABLE IF EXISTS users CASCADE');
+    // await pool.query(`CREATE TABLE IF NOT EXISTS users (
+    //   id SERIAL PRIMARY KEY,
+    //   name TEXT,
+    //   email TEXT UNIQUE,
+    //   employee_id TEXT UNIQUE,
+    //   password TEXT,
+    //   is_admin BOOLEAN DEFAULT FALSE,
+    //   earning INTEGER DEFAULT 0
+    // )`);
     await pool.query(`CREATE TABLE IF NOT EXISTS leads (
       id SERIAL PRIMARY KEY,
-  name TEXT,
-  mobile TEXT,
-  email TEXT,
-  degree TEXT,
-  course TEXT,
-  college TEXT,
-  year_of_passing TEXT,
-  submitted_by TEXT,
-  resume_path TEXT,
-  copy BOOLEAN DEFAULT FALSE,
-  eligibility BOOLEAN DEFAULT true,
-  status TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      name TEXT,
+      mobile TEXT,
+      email TEXT,
+      degree TEXT,
+      course TEXT,
+      college TEXT,
+      year_of_passing TEXT,
+      submitted_by TEXT,
+      resume_path TEXT,
+      downloded boolean DEFAULT false,
+      copy BOOLEAN DEFAULT FALSE,
+      eligibility BOOLEAN DEFAULT true,
+      status TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
     res.json({ message: 'Database schema reset successfully.' });
   } catch (err) {

@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS leads (
   year_of_passing TEXT,
   submitted_by TEXT,
   resume_path TEXT,
+  downloded BOOLEAN DEFAULT FALSE,
   copy BOOLEAN DEFAULT FALSE,
   eligibility BOOLEAN DEFAULT true,
   status TEXT,
