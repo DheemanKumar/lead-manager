@@ -51,8 +51,65 @@ const allEmployeesEarnings = async (req, res) => {
     return res.status(403).json({ error: 'Admin access required' });
   }
   try {
-    const usersRes = await pool.query('SELECT id, name, email, employee_id, earning FROM users WHERE is_admin = false');
-    res.json({ employees: usersRes.rows });
+    // Get all leads grouped by submitted_by
+    const leadsRes = await pool.query(`
+      SELECT l.submitted_by, u.name as user_name, l.name, l.status, l.eligibility, l.copy
+      FROM leads l
+      LEFT JOIN users u ON l.submitted_by = u.email
+      WHERE u.is_admin = false
+    `);
+    // Group by submitted_by
+    const grouped = {};
+    for (const lead of leadsRes.rows) {
+      if (!grouped[lead.submitted_by]) {
+        grouped[lead.submitted_by] = {
+          submitted_by: lead.submitted_by,
+          user_name: lead.user_name,
+          leads: [],
+          totalEarning: 0,
+          joinedCount: 0
+        };
+      }
+      let earning = 0;
+      switch ((lead.status || '').toLowerCase()) {
+        case 'qualified lead':
+        case 'submitted':
+        case 'review stage':
+          if (lead.eligibility && !lead.copy) earning = 50;
+          break;
+        case 'shortlisted':
+          earning = 1000;
+          break;
+        case 'joined':
+          earning = 5000;
+          grouped[lead.submitted_by].joinedCount++;
+          break;
+        case 'rejected':
+        default:
+          earning = 0;
+      }
+      grouped[lead.submitted_by].totalEarning += earning;
+      grouped[lead.submitted_by].leads.push({
+        name: lead.name,
+        status: lead.status,
+        eligibility: lead.eligibility,
+        copy: lead.copy,
+        earning
+      });
+    }
+    // Add bonus and final earning
+    const employees = Object.values(grouped).map(emp => {
+      const bonus = Math.floor(emp.joinedCount / 5) * 10000;
+      return {
+        submitted_by: emp.submitted_by,
+        user_name: emp.user_name,
+        leads: emp.leads,
+        totalEarning: emp.totalEarning,
+        bonus,
+        finalEarning: emp.totalEarning + bonus
+      };
+    });
+    res.json({ employees });
   } catch (err) {
     console.error('DB error in allEmployeesEarnings:', err);
     return res.status(500).json({ error: 'Database error' });
