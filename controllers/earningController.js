@@ -104,6 +104,7 @@ const allEmployeesEarnings = async (req, res) => {
       return {
         submitted_by: emp.submitted_by,
         user_name: emp.user_name,
+        employee_id: emp.employee_id,
         leads: emp.leads,
         totalEarning: emp.totalEarning,
         bonus,
