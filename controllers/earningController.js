@@ -16,6 +16,7 @@ const earningBreakdown = async (req, res) => {
       let earning = 0;
       switch ((lead.status || '').toLowerCase()) {
         case 'qualified lead':
+        case 'submitted':
         case 'review stage':
           if (lead.eligibility && !lead.copy) earning = 50;
           break;
