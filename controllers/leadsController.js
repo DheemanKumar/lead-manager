@@ -107,15 +107,25 @@ const getDashboard = async (req, res) => {
     return res.status(401).json({ error: 'Authentication required' });
   }
   try {
-    const leadsRes = await pool.query('SELECT name, mobile, email, resume_path, copy, eligibility, status FROM leads WHERE submitted_by = $1', [req.user.email]);
+    const leadsRes = await pool.query('SELECT * FROM leads WHERE submitted_by = $1', [req.user.email]);
     const leads = leadsRes.rows;
-    const filteredLeads = leads.filter(l => l.status && l.status.toLowerCase() !== 'rejected');
+    // Calculate lead types
+    const totalLeads = leads.length;
+    const validLeads = leads.filter(l => l.copy === false && l.eligibility === true).length;
+    const reviewStage = leads.filter(l => l.status && l.status.toLowerCase() === 'review stage').length;
+    const shortlisted = leads.filter(l => l.status && l.status.toLowerCase() === 'shortlisted').length;
+    const joined = leads.filter(l => l.status && l.status.toLowerCase() === 'joined').length;
     const userInfoRes = await pool.query('SELECT id, name, email, employee_id, earning FROM users WHERE email = $1', [req.user.email]);
     const userInfo = userInfoRes.rows[0];
-    if (!userInfo) {
-      return res.json({ count: filteredLeads.length, leads: filteredLeads });
-    }
-    res.json({ count: filteredLeads.length, leads: filteredLeads, user: userInfo });
+    res.json({
+      total_leads: totalLeads,
+      valid_leads: validLeads,
+      review_stage: reviewStage,
+      shortlisted: shortlisted,
+      joined: joined,
+      leads,
+      user: userInfo
+    });
   } catch (err) {
     console.error('Dashboard DB error:', err);
     return res.status(500).json({ error: 'Database error' });
