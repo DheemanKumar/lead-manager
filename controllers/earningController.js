@@ -53,7 +53,7 @@ const allEmployeesEarnings = async (req, res) => {
   try {
     // Get all leads grouped by submitted_by
     const leadsRes = await pool.query(`
-      SELECT l.submitted_by as mail_id, u.name as user_name, u.employee_id , l.name, l.status, l.eligibility, l.copy
+      SELECT l.submitted_by, u.name as user_name, u.employee_id , l.name, l.status, l.eligibility, l.copy
       FROM leads l
       LEFT JOIN users u ON l.submitted_by = u.email
       WHERE u.is_admin = false
