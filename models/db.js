@@ -22,13 +22,19 @@ async function initDB() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS leads (
       id SERIAL PRIMARY KEY,
-      name TEXT,
-      mobile TEXT,
-      email TEXT,
-      submitted_by TEXT,
-      resume_path TEXT,
-      status TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  name TEXT,
+  mobile TEXT,
+  email TEXT,
+  degree TEXT,
+  course TEXT,
+  college TEXT,
+  year_of_passing TEXT,
+  submitted_by TEXT,
+  resume_path TEXT,
+  copy BOOLEAN DEFAULT FALSE,
+  eligibility BOOLEAN DEFAULT true,
+  status TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `);
 }
