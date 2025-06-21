@@ -8,7 +8,8 @@ const earningBreakdown = async (req, res) => {
   }
   const employeeEmail = req.user.email;
   try {
-    const leadsRes = await pool.query('SELECT name, status FROM leads WHERE submitted_by = $1', [employeeEmail]);
+    // Get all leads for the user
+    const leadsRes = await pool.query('SELECT name, status, eligibility, copy FROM leads WHERE submitted_by = $1', [employeeEmail]);
     let totalEarning = 0;
     let joinedCount = 0;
     const leadDetails = leadsRes.rows.map(lead => {
@@ -16,7 +17,7 @@ const earningBreakdown = async (req, res) => {
       switch ((lead.status || '').toLowerCase()) {
         case 'qualified lead':
         case 'review stage':
-          earning = 50;
+          if (lead.eligibility && !lead.copy) earning = 50;
           break;
         case 'shortlisted':
           earning = 1000;
@@ -30,8 +31,9 @@ const earningBreakdown = async (req, res) => {
           earning = 0;
       }
       totalEarning += earning;
-      return { name: lead.name, status: lead.status, earning };
+      return { name: lead.name, status: lead.status, eligibility: lead.eligibility, copy: lead.copy, earning };
     });
+    // Bonus: +10,000 for every 5th joined
     const bonus = Math.floor(joinedCount / 5) * 10000;
     const finalEarning = totalEarning + bonus;
     await pool.query('UPDATE users SET earning = $1 WHERE email = $2', [finalEarning, employeeEmail]);
