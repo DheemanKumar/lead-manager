@@ -65,6 +65,7 @@ const allEmployeesEarnings = async (req, res) => {
         grouped[lead.submitted_by] = {
           submitted_by: lead.submitted_by,
           user_name: lead.user_name,
+          employee_id: lead.employee_id,
           leads: [],
           totalEarning: 0,
           joinedCount: 0
