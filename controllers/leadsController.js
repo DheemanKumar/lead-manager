@@ -15,6 +15,7 @@ const submitLead = async (req, res) => {
   if (!req.user || !req.user.email) {
     return res.status(401).json({ error: 'Authentication required' });
   }
+  console.log('Received lead submission:', req.body);
   // Check for all required fields including resume
   const missing = {
     name: !name,
