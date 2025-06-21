@@ -16,8 +16,22 @@ const submitLead = async (req, res) => {
     return res.status(401).json({ error: 'Authentication required' });
   }
   // Check for all required fields including resume
-  if (!name || !mobile || !email || !degree || !course || !college || !year_of_passing || !req.file) {
-    return res.status(400).json({ error: 'Data insufficient: All fields and resume are required.' });
+  const missing = {
+    name: !name,
+    mobile: !mobile,
+    email: !email,
+    degree: !degree,
+    course: !course,
+    college: !college,
+    year_of_passing: !year_of_passing,
+    resume: !req.file
+  };
+  const anyMissing = Object.values(missing).some(v => v);
+  if (anyMissing) {
+    return res.status(400).json({
+      message: 'Data insufficient: All fields and resume are required.',
+      ...missing
+    });
   }
   const submitted_by = req.user.email;
   const resume = req.file;
