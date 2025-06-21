@@ -87,6 +87,11 @@ const submitLead = async (req, res) => {
     [name, mobile, email, degree, course, college, year_of_passing, submitted_by, resume_path, copy, eligibility, 'submitted']
   );
 
+  // If eligible and not a copy, add 50 to user's earning
+  if (eligibility && !copy) {
+    await pool.query('UPDATE users SET earning = earning + 50 WHERE email = $1', [submitted_by]);
+  }
+
   // Return the required message
   res.json({
     email_copy: emailCopy,
