@@ -126,9 +126,17 @@ This backend provides APIs for user authentication, lead submission, resume qual
         "name": "Bob Candidate",
         "mobile": "9876543210",
         "email": "bob@email.com",
+        "degree": "MTech",
+        "course": "CSE",
+        "college": "ABC College",
+        "year_of_passing": "2024",
         "resume_path": "uploads/bob@email.com.pdf",
+        "downloded": true,
+        "copy": false,
+        "eligibility": true,
         "status": "qualified lead",
-        "submitted_by": "alice@company.com"
+        "submitted_by": "alice@company.com",
+        "created_at": "2024-06-01T12:34:56.000Z"
       },
       ...
     ]
@@ -147,18 +155,14 @@ This backend provides APIs for user authentication, lead submission, resume qual
 - **Headers:**
   - `Authorization: Bearer <admin_jwt_token>`
 - **Output:**
-  - Downloads a ZIP file containing all resumes.
+  - Downloads a ZIP file containing all resumes (regardless of download status). After download, all included resumes are marked as downloaded (`downloded = true`).
 
-### 10. Admin: Update Lead Status
-- **Endpoint:** `POST /api/leads/admin/updatestatus/:id/:state`
+### 9a. Admin: Download Only New Resumes (ZIP)
+- **Endpoint:** `GET /api/leads/admin/downloadnew`
 - **Headers:**
   - `Authorization: Bearer <admin_jwt_token>`
-- **Path Params:**
-  - `id`: Lead ID
-  - `state`: Status code (0 = rejected, 1 = review stage, 2 = shortlisted, 3 = joined)
-- **Output (JSON):**
-  - Success: `{ "message": "Lead status updated to 'joined'" }`
-  - Error: `{ "error": "Lead not found" }`
+- **Output:**
+  - Downloads a ZIP file containing only resumes that have not yet been downloaded (`downloded = false`). After download, these resumes are marked as downloaded.
 
 ---
 
@@ -187,7 +191,7 @@ This backend provides APIs for user authentication, lead submission, resume qual
   - Rejected: ₹0
   - **Bonus:** +₹10,000 for every 5th "joined" lead
 
-### 12. Admin: Get All Employees Earnings
+### 12. Admin: Get All Employees Earnings (Detailed)
 - **Endpoint:** `GET /api/earning/admin`
 - **Headers:**
   - `Authorization: Bearer <admin_jwt_token>`
@@ -195,11 +199,25 @@ This backend provides APIs for user authentication, lead submission, resume qual
   ```json
   {
     "employees": [
-      { "id": 1, "name": "Alice Smith", "email": "alice@company.com", "employee_id": "EMP001", "earning": 15050 },
+      {
+        "submitted_by": "alice@company.com",
+        "user_name": "Alice Smith",
+        "leads": [
+          { "name": "Bob Candidate", "status": "qualified lead", "eligibility": true, "copy": false, "earning": 50 },
+          { "name": "Jane Smith", "status": "joined", "eligibility": true, "copy": false, "earning": 5000 }
+        ],
+        "totalEarning": 5050,
+        "bonus": 10000,
+        "finalEarning": 15050
+      },
       ...
     ]
   }
   ```
+- **Logic:**
+  - Groups all leads by `submitted_by` (employee email), joins with user name.
+  - For each group, returns all leads, per-lead earnings, total, bonus, and final earning.
+  - No user table data is returned directly.
 
 ---
 

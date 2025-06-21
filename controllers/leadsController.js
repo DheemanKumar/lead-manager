@@ -151,13 +151,11 @@ const adminDownloadResume = async (req, res) => {
   }
 };
 
-// Admin download all resumes as a zip
-const adminDownloadAllResumes = (req, res) => {
-  db.all('SELECT id, resume_path FROM leads WHERE resume_path IS NOT NULL', [], (err, rows) => {
-    if (err) {
-      console.error('DB error in adminDownloadAllResumes:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
+// Admin download all resumes as a zip (and mark all as downloaded)
+const adminDownloadAllResumes = async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, resume_path FROM leads WHERE resume_path IS NOT NULL');
+    const rows = result.rows;
     if (!rows || rows.length === 0) {
       return res.status(404).json({ error: 'No resumes found' });
     }
@@ -165,13 +163,21 @@ const adminDownloadAllResumes = (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename="all_resumes.zip"');
     const archive = archiver('zip', { zlib: { level: 9 } });
     archive.pipe(res);
-    rows.forEach(row => {
+    for (const row of rows) {
       const filePath = path.resolve(__dirname, '..', row.resume_path);
       const fileName = row.resume_path.split('/').pop();
       archive.file(filePath, { name: fileName });
-    });
+    }
     archive.finalize();
-  });
+    // Mark all these leads as downloaded
+    const ids = rows.map(r => r.id);
+    if (ids.length > 0) {
+      await pool.query('UPDATE leads SET downloded = true WHERE id = ANY($1)', [ids]);
+    }
+  } catch (err) {
+    console.error('DB error in adminDownloadAllResumes:', err);
+    return res.status(500).json({ error: 'Database error' });
+  }
 };
 
 // Admin download only resumes that are not yet downloaded
