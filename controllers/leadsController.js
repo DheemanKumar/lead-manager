@@ -1,6 +1,5 @@
 const { pool } = require('../models/db');
 const path = require('path');
-const checkResume = require('../utils/checkResume');
 const archiver = require('archiver');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -12,91 +11,73 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 // Handles new lead submission (protected)
 const submitLead = async (req, res) => {
-  const { name, mobile, email } = req.body;
+  const { name, mobile, email, degree, course, college, year_of_passing } = req.body;
   if (!req.user || !req.user.email) {
     return res.status(401).json({ error: 'Authentication required' });
+  }
+  // Check for all required fields including resume
+  if (!name || !mobile || !email || !degree || !course || !college || !year_of_passing || !req.file) {
+    return res.status(400).json({ error: 'Data insufficient: All fields and resume are required.' });
   }
   const submitted_by = req.user.email;
   const resume = req.file;
   let resume_path = null;
-  // 1. If resume is uploaded, check qualification BEFORE saving to DB
   if (resume) {
-    const os = require('os');
-    const fs = require('fs');
+    // Optionally upload to Supabase if needed
     const ext = path.extname(resume.originalname) || '.pdf';
     const safeEmail = email.replace(/[^a-zA-Z0-9@.]/g, '_');
-    const tempPath = path.join(os.tmpdir(), `${Date.now()}_${safeEmail}${ext}`);
-    fs.writeFileSync(tempPath, resume.buffer);
-    return checkResume(tempPath, async (isEligible, errorMsg) => {
-      fs.unlinkSync(tempPath);
-      if (!isEligible) {
-        return res.status(400).json({ error: errorMsg || 'Candidate not eligible' });
+    const supabasePath = `resumes/${safeEmail}${ext}`;
+    try {
+      const { data, error } = await supabase.storage.from(process.env.SUPABASE_BUCKET || 'resumes').upload(supabasePath, resume.buffer, {
+        contentType: resume.mimetype,
+        upsert: true
+      });
+      if (!error && data && data.path) {
+        resume_path = data.path;
       }
-      // If qualified, upload to Supabase
-      let data, error;
-      const supabasePath = `resumes/${safeEmail}${ext}`;
-      try {
-        ({ data, error } = await supabase.storage.from(SUPABASE_BUCKET).upload(supabasePath, resume.buffer, {
-          contentType: resume.mimetype,
-          upsert: true
-        }));
-      } catch (e) {
-        return res.status(500).json({ error: 'Failed to upload resume to storage (exception)' });
-      }
-      if (error || !data || !data.path) {
-        return res.status(500).json({ error: 'Failed to upload resume to storage' });
-      }
-      resume_path = data.path;
-      await saveLead();
-    });
-  } else {
-    await saveLead();
+    } catch (e) {
+      // Ignore upload errors for now
+    }
   }
 
-  async function saveLead() {
-    // Check for duplicate
-    const dup = await pool.query('SELECT id FROM leads WHERE mobile = $1 OR email = $2', [mobile, email]);
-    if (dup.rows.length > 0) {
-      return res.status(409).json({ error: 'Lead already exists with this mobile number or email' });
+  // Check for duplicate email/mobile
+  let emailCopy = false;
+  let contactCopy = false;
+  const dup = await pool.query('SELECT email, mobile FROM leads WHERE email = $1 OR mobile = $2', [email, mobile]);
+  dup.rows.forEach(row => {
+    if (row.email === email) emailCopy = true;
+    if (row.mobile === mobile) contactCopy = true;
+  });
+
+  // Check degree and course eligibility
+  let degreeEligible = false;
+  let courseEligible = false;
+  if (degree && degree.trim().toLowerCase() === 'mtech') {
+    degreeEligible = true;
+    const allowedCourses = ['cse', 'it', 'machine learning'];
+    if (course && allowedCourses.includes(course.trim().toLowerCase())) {
+      courseEligible = true;
     }
-    // Insert lead
-    await pool.query(
-      'INSERT INTO leads (name, mobile, email, submitted_by, resume_path, status) VALUES ($1, $2, $3, $4, $5, $6)',
-      [name, mobile, email, submitted_by, resume_path, 'qualified lead']
-    );
-    // Recalculate earning
-    const leadsRes = await pool.query('SELECT status FROM leads WHERE submitted_by = $1', [submitted_by]);
-    let totalEarning = 0;
-    let joinedCount = 0;
-    leadsRes.rows.forEach(l => {
-      switch ((l.status || '').toLowerCase()) {
-        case 'qualified lead':
-        case 'review stage':
-          totalEarning += 50;
-          break;
-        case 'shortlisted':
-          totalEarning += 1000;
-          break;
-        case 'joined':
-          totalEarning += 5000;
-          joinedCount++;
-          break;
-        case 'rejected':
-        default:
-          break;
-      }
-    });
-    const bonus = Math.floor(joinedCount / 5) * 10000;
-    const finalEarning = totalEarning + bonus;
-    await pool.query('UPDATE users SET earning = $1 WHERE email = $2', [finalEarning, submitted_by]);
-    const userInfoRes = await pool.query('SELECT id, name, email, employee_id, earning FROM users WHERE email = $1', [submitted_by]);
-    const userInfo = userInfoRes.rows[0];
-    res.status(201).json({
-      message: 'Lead submitted successfully',
-      status: 'qualified lead',
-      user: userInfo
-    });
   }
+
+  // Set eligibility as per schema
+  const eligibility = degreeEligible && courseEligible;
+  const copy = emailCopy || contactCopy;
+
+  // Save the lead in all cases
+  await pool.query(
+    `INSERT INTO leads (name, mobile, email, degree, course, college, year_of_passing, submitted_by, resume_path, copy, eligibility, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+    [name, mobile, email, degree, course, college, year_of_passing, submitted_by, resume_path, copy, eligibility, 'submitted']
+  );
+
+  // Return the required message
+  res.json({
+    email_copy: emailCopy,
+    contact_copy: contactCopy,
+    degree: degreeEligible,
+    course: courseEligible
+  });
 };
 
 // Dashboard: get all qualified leads submitted by the user

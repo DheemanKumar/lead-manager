@@ -17,8 +17,14 @@ CREATE TABLE IF NOT EXISTS leads (
   name TEXT,
   mobile TEXT,
   email TEXT,
+  degree TEXT,
+  course TEXT,
+  college TEXT,
+  year_of_passing TEXT,
   submitted_by TEXT,
   resume_path TEXT,
+  copy BOOLEAN DEFAULT FALSE,
+  eligibility BOOLEAN DEFAULT true,
   status TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
