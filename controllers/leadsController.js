@@ -107,7 +107,7 @@ const getDashboard = async (req, res) => {
     return res.status(401).json({ error: 'Authentication required' });
   }
   try {
-    const leadsRes = await pool.query('SELECT name, mobile, email, resume_path, status FROM leads WHERE submitted_by = $1', [req.user.email]);
+    const leadsRes = await pool.query('SELECT name, mobile, email, resume_path, copy, eligibility, status FROM leads WHERE submitted_by = $1', [req.user.email]);
     const leads = leadsRes.rows;
     const filteredLeads = leads.filter(l => l.status && l.status.toLowerCase() !== 'rejected');
     const userInfoRes = await pool.query('SELECT id, name, email, employee_id, earning FROM users WHERE email = $1', [req.user.email]);

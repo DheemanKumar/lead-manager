@@ -40,38 +40,49 @@ This backend provides APIs for user authentication, lead submission, resume qual
 
 ## Leads
 
-### 5. Submit Lead
+### Submit Lead
 - **Endpoint:** `POST /api/leads/`
 - **Headers:**
   - `Authorization: Bearer <jwt_token>`
 - **Input (form-data):**
-  - `name` (Text)
-  - `mobile` (Text)
-  - `email` (Text)
-  - `resume` (File, PDF)
+  - `name` (Text, required)
+  - `mobile` (Text, required)
+  - `email` (Text, required)
+  - `degree` (Text, required)
+  - `course` (Text, required)
+  - `college` (Text, required)
+  - `year_of_passing` (Text, required)
+  - `resume` (File, PDF, required)
 - **Output (JSON):**
-  - Success:
+  - If any field is missing:
     ```json
     {
-      "message": "Lead submitted successfully",
-      "status": "qualified lead",
-      "user": {
-        "id": 1,
-        "name": "Alice Smith",
-        "email": "alice@company.com",
-        "employee_id": "EMP001",
-        "earning": 15050
-      }
+      "message": "Data insufficient: All fields and resume are required.",
+      "name": true/false,
+      "mobile": true/false,
+      "email": true/false,
+      "degree": true/false,
+      "course": true/false,
+      "college": true/false,
+      "year_of_passing": true/false,
+      "resume": true/false
     }
     ```
-  - Duplicate: `{ "error": "Lead already exists with this mobile number or email" }`
-  - Not eligible (resume): `{ "error": "Candidate not eligible: MTech not found in resume" }`
-  - Missing fields: `{ "error": "Missing required field(s): name, mobile" }`
-
-#### Resume Qualification
-- The resume PDF must mention one of these (case-insensitive):
-  - `M.Tech`, `MTech`, `M. Tech.`, `Master of Technology`, `MTech (CSE)`, `MTech (ECE)`, `MTech (AI)`, `M.Tech in Computer Science`, `M.Tech (Specialization)`
-- Otherwise, the lead is rejected as not eligible.
+  - On success:
+    ```json
+    {
+      "email_copy": true/false,
+      "contact_copy": true/false,
+      "degree": true/false,
+      "course": true/false
+    }
+    ```
+- **Logic:**
+  - All fields and resume are mandatory.
+  - If email or mobile already exists, `copy` is set to true.
+  - If `degree` is "mtech" and `course` is one of ["cse", "it", "machine learning"], eligibility is true.
+  - If eligibility is true and copy is false, 50 is added to the user's earning.
+  - The lead is saved in all cases.
 
 ### 6. Get User Dashboard (All Leads)
 - **Endpoint:** `GET /api/leads/dashboard`
