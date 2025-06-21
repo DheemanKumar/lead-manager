@@ -16,6 +16,7 @@ const submitLead = async (req, res) => {
     return res.status(401).json({ error: 'Authentication required' });
   }
   console.log('Received lead submission:', req.body);
+  console.log('File received:', req.file ? req.file.originalname : 'No file uploaded');
   // Check for all required fields including resume
   const missing = {
     name: !name,
