@@ -8,6 +8,9 @@ const getLeaderboard = async (req, res) => {
       SELECT users.name, COUNT(leads.id) as lead_count
       FROM leads
       JOIN users ON leads.submitted_by = users.email
+      WHERE eligibility = true
+        AND copy = false
+        AND leads.status NOT like '%rejected%'
       GROUP BY users.id
       ORDER BY lead_count DESC
     `);
