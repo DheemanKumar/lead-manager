@@ -209,8 +209,8 @@ const adminDownloadNewResume = async (req, res) => {
   }
 };
 
-// Admin update lead status
-const adminUpdateStatus = (req, res) => {
+// Admin update lead status (PostgreSQL version)
+const adminUpdateStatus = async (req, res) => {
   const leadId = req.params.id;
   const state = parseInt(req.params.state, 10);
   let status;
@@ -230,55 +230,42 @@ const adminUpdateStatus = (req, res) => {
     default:
       return res.status(400).json({ error: 'Invalid state value' });
   }
-  db.run('UPDATE leads SET status = ? WHERE id = ?', [status, leadId], function (err) {
-    if (err) {
-      console.error('Error updating lead status:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    if (this.changes === 0) {
+  try {
+    const updateRes = await pool.query('UPDATE leads SET status = $1 WHERE id = $2 RETURNING submitted_by', [status, leadId]);
+    if (updateRes.rowCount === 0) {
       return res.status(404).json({ error: 'Lead not found' });
     }
-    // After updating status, recalculate and update the user's earning
-    db.get('SELECT submitted_by FROM leads WHERE id = ?', [leadId], (err2, lead) => {
-      if (err2 || !lead) {
-        return res.json({ message: `Lead status updated to '${status}', but could not update user earning` });
+    const employeeEmail = updateRes.rows[0].submitted_by;
+    // Recalculate and update the user's earning
+    const leadsRes = await pool.query('SELECT status FROM leads WHERE submitted_by = $1', [employeeEmail]);
+    let totalEarning = 0;
+    let joinedCount = 0;
+    leadsRes.rows.forEach(l => {
+      switch ((l.status || '').toLowerCase()) {
+        case 'qualified lead':
+        case 'review stage':
+          totalEarning += 50;
+          break;
+        case 'shortlisted':
+          totalEarning += 1000;
+          break;
+        case 'joined':
+          totalEarning += 5000;
+          joinedCount++;
+          break;
+        case 'rejected':
+        default:
+          break;
       }
-      const employeeEmail = lead.submitted_by;
-      db.all('SELECT status FROM leads WHERE submitted_by = ?', [employeeEmail], (err3, leads) => {
-        if (err3) {
-          return res.json({ message: `Lead status updated to '${status}', but could not update user earning` });
-        }
-        let totalEarning = 0;
-        let joinedCount = 0;
-        leads.forEach(l => {
-          switch ((l.status || '').toLowerCase()) {
-            case 'qualified lead':
-            case 'review stage':
-              totalEarning += 50;
-              break;
-            case 'shortlisted':
-              totalEarning += 1000;
-              break;
-            case 'joined':
-              totalEarning += 5000;
-              joinedCount++;
-              break;
-            case 'rejected':
-            default:
-              break;
-          }
-        });
-        const bonus = Math.floor(joinedCount / 5) * 10000;
-        const finalEarning = totalEarning + bonus;
-        db.run('UPDATE users SET earning = ? WHERE email = ?', [finalEarning, employeeEmail], err4 => {
-          if (err4) {
-            return res.json({ message: `Lead status updated to '${status}', but could not update user earning` });
-          }
-          res.json({ message: `Lead status updated to '${status}' and user earning updated` });
-        });
-      });
     });
-  });
+    const bonus = Math.floor(joinedCount / 5) * 10000;
+    const finalEarning = totalEarning + bonus;
+    await pool.query('UPDATE users SET earning = $1 WHERE email = $2', [finalEarning, employeeEmail]);
+    res.json({ message: `Lead status updated to '${status}' and user earning updated` });
+  } catch (err) {
+    console.error('Error updating lead status:', err);
+    return res.status(500).json({ error: 'Database error' });
+  }
 };
 
 // Admin: get all leads
