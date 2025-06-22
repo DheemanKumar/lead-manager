@@ -38,6 +38,22 @@ async function initDB() {
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  // Table for pending user registrations (for OTP verification)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS pending_users (
+      id SERIAL PRIMARY KEY,
+      name TEXT,
+      email TEXT UNIQUE,
+      employee_id TEXT UNIQUE,
+      password TEXT,
+      is_admin BOOLEAN DEFAULT FALSE,
+      otp INT,
+      request_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
 }
+
+// Call this function during app startup
+initDB();
 
 module.exports = { pool, initDB };

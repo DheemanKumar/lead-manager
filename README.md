@@ -23,6 +23,43 @@ This backend provides APIs for user authentication, lead submission, resume qual
   - Success: `{ "message": "User registered successfully" }` or `{ "message": "Admin registered successfully" }`
   - Error: `{ "error": "Email already exists" }`
 
+### 1a. Sign Up with Email OTP Verification
+- **Endpoint:** `POST /api/auth/signup-otp`
+- **Input (JSON):**
+  ```json
+  {
+    "name": "Alice Smith",
+    "email": "alice@company.com",
+    "employee_id": "EMP001",
+    "password": "yourpassword",
+    "is_admin": false
+  }
+  ```
+- **Output (JSON):**
+  - Success: `{ "message": "OTP sent to email", "token": "<token>" }`
+  - Error: `{ "error": "Email already exists" }`
+- **Logic:**
+  - Stores registration data in a temporary table (`pending_users`).
+  - Generates a 6-digit OTP and sends it to the user's email.
+  - Returns a token for identification during OTP verification.
+
+### 1b. OTP Verification
+- **Endpoint:** `POST /api/auth/verify-otp`
+- **Input (JSON):**
+  ```json
+  {
+    "email": "alice@company.com",
+    "otp": 123456
+  }
+  ```
+- **Output (JSON):**
+  - Success: `{ "message": "Registration complete. You can now log in." }`
+  - Error: `{ "error": "Invalid OTP" }` or `{ "error": "No pending registration for this email" }`
+- **Logic:**
+  - Checks the OTP for the email in the `pending_users` table.
+  - If valid, moves the user to the main `users` table and deletes the pending record.
+  - If invalid, returns an error.
+
 ### 2. Login (User or Admin)
 - **Endpoint:** `POST /api/auth/login`
 - **Input (JSON):**
@@ -306,6 +343,72 @@ This backend provides APIs for user authentication, lead submission, resume qual
 - Only leads with unique mobile and email are accepted.
 - Only resumes mentioning MTech (with allowed variations) are accepted as qualified leads.
 - The `users` table contains an `earning` column that is updated automatically.
+
+---
+
+## Registration & Email OTP Verification Flow (How Signup Works)
+
+### How Signup Works Now
+1. **User fills the registration form** on the frontend with name, email, employee ID, password, and (optionally) is_admin.
+2. **Frontend sends a POST request to `/api/auth/signup-otp`** with the registration details.
+3. **Backend generates a 6-digit OTP** and stores the registration data in a temporary table (`pending_users`).
+4. **Backend sends the OTP to the user's email** and returns a token (for identification) to the frontend.
+5. **Frontend prompts the user to enter the OTP** received in their email.
+6. **Frontend sends a POST request to `/api/auth/verify-otp`** with the user's email and the OTP.
+7. **Backend verifies the OTP**:
+   - If correct, the user is moved to the main `users` table and registration is complete.
+   - If incorrect, an error is returned and the user can retry.
+
+### How to Integrate in the Frontend
+
+1. **Registration Form Submission**
+   - Collect user details: name, email, employee_id, password, is_admin (if needed).
+   - Send a POST request to `/api/auth/signup-otp` with these details.
+   - Example (using fetch):
+     ```js
+     fetch('/api/auth/signup-otp', {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({ name, email, employee_id, password, is_admin })
+     })
+     .then(res => res.json())
+     .then(data => {
+       if (data.token) {
+         // Save token if needed, prompt for OTP
+       } else {
+         // Show error
+       }
+     });
+     ```
+
+2. **Prompt for OTP**
+   - After successful signup-otp, show an input for the OTP the user received by email.
+
+3. **OTP Verification**
+   - Send a POST request to `/api/auth/verify-otp` with the user's email and the OTP.
+   - Example:
+     ```js
+     fetch('/api/auth/verify-otp', {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({ email, otp })
+     })
+     .then(res => res.json())
+     .then(data => {
+       if (data.message) {
+         // Registration complete, redirect to login
+       } else {
+         // Show error
+       }
+     });
+     ```
+
+4. **Error Handling**
+   - If the OTP is incorrect, show an error and allow the user to retry.
+   - If the email is already registered, show an appropriate message.
+
+5. **Resend OTP (Optional)**
+   - You can add a button to request a new OTP by calling the signup-otp endpoint again with the same email.
 
 ---
 
