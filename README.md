@@ -73,6 +73,14 @@ This backend provides APIs for user authentication, lead submission, resume qual
   - Success: `{ "token": "<jwt_token>", "is_admin": true/false }`
   - Error: `{ "error": "Invalid credentials" }`
 
+### 3. Logout
+- **Endpoint:** `POST /api/auth/logout`
+- **Output (JSON):**
+  - Success: `{ "message": "Logged out successfully. Please remove the token from your client." }`
+- **Logic:**
+  - For stateless JWT, logout is handled on the client by removing the token (from localStorage, cookies, etc).
+  - This endpoint simply instructs the client to remove the token.
+
 ---
 
 ## Leads

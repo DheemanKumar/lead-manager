@@ -143,4 +143,11 @@ const verifyOtp = async (req, res) => {
   }
 };
 
-module.exports = { signup, login, signupWithOtp, verifyOtp };
+// Logout API: instructs client to remove JWT token
+const logout = (req, res) => {
+  // For stateless JWT, logout is handled on the client by removing the token
+  // Optionally, you can instruct the client to remove the token (e.g., clear cookie/localStorage)
+  res.json({ message: 'Logged out successfully. Please remove the token from your client.' });
+};
+
+module.exports = { signup, login, signupWithOtp, verifyOtp, logout };
