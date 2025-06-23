@@ -150,4 +150,67 @@ const logout = (req, res) => {
   res.json({ message: 'Logged out successfully. Please remove the token from your client.' });
 };
 
-module.exports = { signup, login, signupWithOtp, verifyOtp, logout };
+// Forgot Password API
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required' });
+  try {
+    const userRes = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (!userRes.rows[0]) return res.status(404).json({ error: 'No user with this email' });
+    const otp = generateOTP();
+    const token = crypto.randomBytes(24).toString('hex');
+    // Store OTP and token in a temp table or upsert into pending_users
+    await pool.query(
+      `INSERT INTO pending_users (name, email, employee_id, password, is_admin, otp, request_time)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+       ON CONFLICT (email) DO UPDATE SET otp = $6, request_time = NOW()`,
+      [userRes.rows[0].name, email, userRes.rows[0].employee_id, userRes.rows[0].password, userRes.rows[0].is_admin, otp]
+    );
+    await sendOtpEmail(email, otp);
+    res.json({ message: 'OTP sent to email', token });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    return res.status(500).json({ error: 'Database error' });
+  }
+};
+
+// Verify OTP for password reset
+const verifyForgotOtp = async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) return res.status(400).json({ error: 'Email and OTP required' });
+  try {
+    const result = await pool.query('SELECT * FROM pending_users WHERE email = $1', [email]);
+    const pending = result.rows[0];
+    if (!pending) return res.status(404).json({ error: 'No OTP request for this email' });
+    if (parseInt(otp, 10) !== pending.otp) {
+      return res.status(401).json({ error: 'Invalid OTP' });
+    }
+    // Generate a new token for password reset
+    const resetToken = crypto.randomBytes(24).toString('hex');
+    // Optionally, store this token in pending_users (not strictly needed for stateless, but for extra security)
+    await pool.query('UPDATE pending_users SET request_time = NOW() WHERE email = $1', [email]);
+    res.json({ message: 'OTP verified. You can now reset your password.', resetToken });
+  } catch (err) {
+    console.error('Verify forgot OTP error:', err);
+    return res.status(500).json({ error: 'Database error' });
+  }
+};
+
+// Reset Password API
+const resetPassword = async (req, res) => {
+  const { email, newPassword } = req.body;
+  if (!email || !newPassword) return res.status(400).json({ error: 'Email and new password required' });
+  try {
+    const pending = await pool.query('SELECT * FROM pending_users WHERE email = $1', [email]);
+    if (!pending.rows[0]) return res.status(404).json({ error: 'No OTP verification found for this email' });
+    const hash = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE users SET password = $1 WHERE email = $2', [hash, email]);
+    await pool.query('DELETE FROM pending_users WHERE email = $1', [email]);
+    res.json({ message: 'Password reset successful. You can now log in.' });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    return res.status(500).json({ error: 'Database error' });
+  }
+};
+
+module.exports = { signup, login, signupWithOtp, verifyOtp, logout, forgotPassword, verifyForgotOtp, resetPassword };
