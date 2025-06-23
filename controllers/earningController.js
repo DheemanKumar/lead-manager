@@ -8,6 +8,9 @@ const earningBreakdown = async (req, res) => {
   }
   const employeeEmail = req.user.email;
   try {
+    // Get user info
+    const userRes = await pool.query('SELECT name, employee_id FROM users WHERE email = $1', [employeeEmail]);
+    const user = userRes.rows[0] || {};
     // Get all leads for the user
     const leadsRes = await pool.query('SELECT name, status, eligibility, copy FROM leads WHERE submitted_by = $1', [employeeEmail]);
     let totalEarning = 0;
@@ -38,7 +41,15 @@ const earningBreakdown = async (req, res) => {
     const bonus = Math.floor(joinedCount / 5) * 10000;
     const finalEarning = totalEarning + bonus;
     await pool.query('UPDATE users SET earning = $1 WHERE email = $2', [finalEarning, employeeEmail]);
-    res.json({ leads: leadDetails, totalEarning, bonus, finalEarning });
+    res.json({
+      email: employeeEmail,
+      user_name: user.name,
+      employee_id: user.employee_id,
+      leads: leadDetails,
+      totalEarning,
+      bonus,
+      finalEarning
+    });
   } catch (err) {
     console.error('Earning breakdown DB error:', err);
     return res.status(500).json({ error: 'Database error' });
