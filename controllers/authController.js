@@ -28,7 +28,7 @@ async function sendOtpEmail(email, otp) {
     from: process.env.MAIL_FROM || 'noreply@example.com',
     to: email,
     subject: 'Your OTP for Registration',
-    text: `Your OTP is: ${otp}`
+    text: `Your OTP is for nxtwave referal system is : ${otp}`
   });
 }
 
