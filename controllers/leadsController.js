@@ -2,6 +2,7 @@ const { pool } = require('../models/db');
 const path = require('path');
 const archiver = require('archiver');
 const { createClient } = require('@supabase/supabase-js');
+const checkResume = require('../utils/checkResume');
 
 // Initialize Supabase client
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -38,6 +39,8 @@ const submitLead = async (req, res) => {
   const submitted_by = req.user.email;
   const resume = req.file;
   let resume_path = null;
+  let resumeStatus = 'need review';
+  let resumeCheckResult = false;
   if (resume) {
     // Optionally upload to Supabase if needed
     const ext = path.extname(resume.originalname) || '.pdf';
@@ -50,6 +53,20 @@ const submitLead = async (req, res) => {
       });
       if (!error && data && data.path) {
         resume_path = data.path;
+        // Save buffer to a temp file for checkResume
+        const fs = require('fs');
+        const os = require('os');
+        const tempPath = path.join(os.tmpdir(), `${safeEmail}_${Date.now()}${ext}`);
+        fs.writeFileSync(tempPath, resume.buffer);
+        // Delegate all resume validation to checkResume.js
+        await new Promise((resolve) => {
+          checkResume(tempPath, (result) => {
+            resumeCheckResult = result;
+            resumeStatus = result ? 'submited' : 'need review';
+            resolve();
+          });
+        });
+        fs.unlinkSync(tempPath);
       }
     } catch (e) {
       // Ignore upload errors for now
@@ -84,7 +101,7 @@ const submitLead = async (req, res) => {
   await pool.query(
     `INSERT INTO leads (name, mobile, email, degree, course, college, year_of_passing, submitted_by, resume_path, downloded, copy, eligibility, status)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-    [name, mobile, email, degree, course, college, year_of_passing, submitted_by, resume_path, false, copy, eligibility, 'submitted']
+    [name, mobile, email, degree, course, college, year_of_passing, submitted_by, resume_path, false, copy, eligibility, resumeStatus]
   );
 
   // If eligible and not a copy, add 50 to user's earning
@@ -97,20 +114,32 @@ const submitLead = async (req, res) => {
     email_copy: emailCopy,
     contact_copy: contactCopy,
     degree: degreeEligible,
-    course: courseEligible
+    course: courseEligible,
+    resume_check: resumeCheckResult,
+    status: resumeStatus
   });
 };
 
-// Dashboard: get all qualified leads submitted by the user
+// Dashboard: get all qualified leads submitted by the user (with pagination)
 const getDashboard = async (req, res) => {
   if (!req.user || !req.user.email) {
     return res.status(401).json({ error: 'Authentication required' });
   }
   try {
-    const leadsRes = await pool.query('SELECT * FROM leads WHERE submitted_by = $1', [req.user.email]);
+    // Pagination params
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const offset = (page - 1) * limit;
+
+    // Get total count
+    const countRes = await pool.query('SELECT COUNT(*) FROM leads WHERE submitted_by = $1', [req.user.email]);
+    const totalLeads = parseInt(countRes.rows[0].count, 10);
+
+    // Get paginated leads
+    const leadsRes = await pool.query('SELECT * FROM leads WHERE submitted_by = $1 ORDER BY id DESC LIMIT $2 OFFSET $3', [req.user.email, limit, offset]);
     const leads = leadsRes.rows;
+
     // Calculate lead types
-    const totalLeads = leads.length;
     const validLeads = leads.filter(l => l.copy === false && l.eligibility === true).length;
     const reviewStage = leads.filter(l => l.status && l.status.toLowerCase() === 'review stage').length;
     const shortlisted = leads.filter(l => l.status && l.status.toLowerCase() === 'shortlisted').length;
@@ -124,7 +153,10 @@ const getDashboard = async (req, res) => {
       shortlisted: shortlisted,
       joined: joined,
       leads,
-      user: userInfo
+      user: userInfo,
+      page,
+      limit,
+      total_pages: Math.ceil(totalLeads / limit)
     });
   } catch (err) {
     console.error('Dashboard DB error:', err);
@@ -268,14 +300,30 @@ const adminUpdateStatus = async (req, res) => {
   }
 };
 
-// Admin: get all leads
+// Admin: get all leads (with pagination)
 const adminGetAllLeads = async (req, res) => {
   if (!req.user || !req.user.is_admin) {
     return res.status(403).json({ error: 'Admin access required' });
   }
   try {
-    const result = await pool.query('SELECT * FROM leads');
-    res.json({ count: result.rows.length, leads: result.rows });
+    // Pagination params
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const offset = (page - 1) * limit;
+
+    // Get total count
+    const countRes = await pool.query('SELECT COUNT(*) FROM leads');
+    const totalLeads = parseInt(countRes.rows[0].count, 10);
+
+    // Get paginated leads
+    const result = await pool.query('SELECT * FROM leads ORDER BY id DESC LIMIT $1 OFFSET $2', [limit, offset]);
+    res.json({
+      count: totalLeads,
+      leads: result.rows,
+      page,
+      limit,
+      total_pages: Math.ceil(totalLeads / limit)
+    });
   } catch (err) {
     console.error('Admin getAllLeads DB error:', err);
     return res.status(500).json({ error: 'Database error' });

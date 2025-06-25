@@ -173,10 +173,17 @@ This backend provides APIs for user authentication, lead submission, resume qual
 - **Endpoint:** `GET /api/leads/dashboard`
 - **Headers:**
   - `Authorization: Bearer <jwt_token>`
+- **Query Parameters:**
+  - `page` (optional): Page number (default: 1)
+  - `limit` (optional): Items per page (default: 10)
 - **Output (JSON):**
   ```json
   {
-    "qualifiedLeadsCount": 2,
+    "total_leads": 25,
+    "valid_leads": 10,
+    "review_stage": 2,
+    "shortlisted": 1,
+    "joined": 1,
     "leads": [
       {
         "name": "Bob Candidate",
@@ -193,7 +200,10 @@ This backend provides APIs for user authentication, lead submission, resume qual
       "email": "alice@company.com",
       "employee_id": "EMP001",
       "earning": 15050
-    }
+    },
+    "page": 1,
+    "limit": 10,
+    "total_pages": 3
   }
   ```
 
@@ -201,10 +211,13 @@ This backend provides APIs for user authentication, lead submission, resume qual
 - **Endpoint:** `GET /api/leads/admin/leads`
 - **Headers:**
   - `Authorization: Bearer <admin_jwt_token>`
+- **Query Parameters:**
+  - `page` (optional): Page number (default: 1)
+  - `limit` (optional): Items per page (default: 20)
 - **Output (JSON):**
   ```json
   {
-    "count": 10,
+    "count": 100,
     "leads": [
       {
         "id": 1,
@@ -224,7 +237,10 @@ This backend provides APIs for user authentication, lead submission, resume qual
         "created_at": "2024-06-01T12:34:56.000Z"
       },
       ...
-    ]
+    ],
+    "page": 1,
+    "limit": 20,
+    "total_pages": 5
   }
   ```
 
