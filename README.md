@@ -23,7 +23,7 @@ This backend provides APIs for user authentication, lead submission, resume qual
   - Success: `{ "message": "User registered successfully" }` or `{ "message": "Admin registered successfully" }`
   - Error: `{ "error": "Email already exists" }`
 
-### 1a. Sign Up with Email OTP Verification
+### 1a. Sign Up with Email OTP Verification (User Only)
 - **Endpoint:** `POST /api/auth/signup-otp`
 - **Input (JSON):**
   ```json
@@ -31,14 +31,14 @@ This backend provides APIs for user authentication, lead submission, resume qual
     "name": "Alice Smith",
     "email": "alice@company.com",
     "employee_id": "EMP001",
-    "password": "yourpassword",
-    "is_admin": false
+    "password": "yourpassword"
   }
   ```
 - **Output (JSON):**
   - Success: `{ "message": "OTP sent to email", "token": "<token>" }`
-  - Error: `{ "error": "Email already exists" }`
+  - Error: `{ "error": "Email already exists" }` or `{ "error": "Admin signup is not allowed via this endpoint" }`
 - **Logic:**
+  - Only allows user registration (admin registration is blocked).
   - Stores registration data in a temporary table (`pending_users`).
   - Generates a 6-digit OTP and sends it to the user's email.
   - Returns a token for identification during OTP verification.
@@ -120,6 +120,21 @@ This backend provides APIs for user authentication, lead submission, resume qual
 - **Logic:**
   - Updates the user's password in the `users` table if OTP was verified.
   - Deletes the OTP record from `pending_users` after successful reset.
+
+### 1c. Create Admin (Admin Only)
+- **Endpoint:** `POST /api/auth/createadmin`
+- **Headers:**
+  - `Authorization: Bearer <admin_jwt_token>`
+- **Input (JSON):**
+  ```json
+  { "employee_id": "EMP002" }
+  ```
+- **Output (JSON):**
+  - Success: `{ "message": "User promoted to admin successfully" }`
+  - Error: `{ "error": "User with this employee ID not found" }` or `{ "error": "Admin access required" }`
+- **Logic:**
+  - Only an authenticated admin can call this endpoint.
+  - Promotes the user with the given `employee_id` to admin.
 
 ---
 

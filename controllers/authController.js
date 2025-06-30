@@ -33,35 +33,35 @@ async function sendOtpEmail(email, otp) {
 }
 
 // Unified signup for user and admin (PostgreSQL)
-const signup = async (req, res) => {
-  const { name, email, employee_id, password, is_admin } = req.body;
-  if (!name || !email || !password) {
-    return res.status(400).json({ error: 'All fields are required' });
-  }
-  const empId = is_admin ? (employee_id || 'admin') : employee_id;
-  if (!empId) {
-    return res.status(400).json({ error: 'Employee ID is required' });
-  }
-  try {
-    const hash = await bcrypt.hash(password, 10);
-    await pool.query(
-      'INSERT INTO users (name, email, employee_id, password, is_admin) VALUES ($1, $2, $3, $4, $5)',
-      [name, email, empId, hash, !!is_admin]
-    );
-    res.status(201).json({ message: is_admin ? 'Admin registered successfully' : 'User registered successfully' });
-  } catch (err) {
-    console.error('Signup DB error:', err);
-    if (err.code === '23505') { // unique_violation
-      if (err.detail && err.detail.includes('email')) {
-        return res.status(409).json({ error: 'Email already exists' });
-      }
-      if (err.detail && err.detail.includes('employee_id')) {
-        return res.status(409).json({ error: 'Employee ID already exists' });
-      }
-    }
-    return res.status(500).json({ error: 'Database error' });
-  }
-};
+// const signup = async (req, res) => {
+//   const { name, email, employee_id, password, is_admin } = req.body;
+//   if (!name || !email || !password) {
+//     return res.status(400).json({ error: 'All fields are required' });
+//   }
+//   const empId = employee_id;
+//   if (!empId) {
+//     return res.status(400).json({ error: 'Employee ID is required' });
+//   }
+//   try {
+//     const hash = await bcrypt.hash(password, 10);
+//     await pool.query(
+//       'INSERT INTO users (name, email, employee_id, password, is_admin) VALUES ($1, $2, $3, $4, $5)',
+//       [name, email, empId, hash, !!is_admin]
+//     );
+//     res.status(201).json({ message: is_admin ? 'Admin registered successfully' : 'User registered successfully' });
+//   } catch (err) {
+//     console.error('Signup DB error:', err);
+//     if (err.code === '23505') { // unique_violation
+//       if (err.detail && err.detail.includes('email')) {
+//         return res.status(409).json({ error: 'Email already exists' });
+//       }
+//       if (err.detail && err.detail.includes('employee_id')) {
+//         return res.status(409).json({ error: 'Employee ID already exists' });
+//       }
+//     }
+//     return res.status(500).json({ error: 'Database error' });
+//   }
+// };
 
 // Unified login for user and admin (PostgreSQL)
 const login = async (req, res) => {
@@ -83,15 +83,18 @@ const login = async (req, res) => {
   }
 };
 
-// Signup with OTP (store in pending_users)
+// Signup with OTP (store in pending_users) - user only, no admin allowed
 const signupWithOtp = async (req, res) => {
   const { name, email, employee_id, password, is_admin } = req.body;
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'All fields are required' });
   }
-  const empId = is_admin ? (employee_id || 'admin') : employee_id;
+  const empId = employee_id;
   if (!empId) {
     return res.status(400).json({ error: 'Employee ID is required' });
+  }
+  if (is_admin) {
+    return res.status(403).json({ error: 'Admin signup is not allowed via this endpoint' });
   }
   try {
     const hash = await bcrypt.hash(password, 10);
@@ -99,7 +102,7 @@ const signupWithOtp = async (req, res) => {
     const token = crypto.randomBytes(24).toString('hex');
     await pool.query(
       'INSERT INTO pending_users (name, email, employee_id, password, is_admin, otp, request_time) VALUES ($1, $2, $3, $4, $5, $6, NOW())',
-      [name, email, empId, hash, !!is_admin, otp]
+      [name, email, empId, hash, false, otp]
     );
     await sendOtpEmail(email, otp);
     res.status(201).json({ message: 'OTP sent to email', token });
@@ -113,6 +116,30 @@ const signupWithOtp = async (req, res) => {
         return res.status(409).json({ error: 'Employee ID already exists' });
       }
     }
+    return res.status(500).json({ error: 'Database error' });
+  }
+};
+
+// Create admin API: only an admin can promote another user to admin by employee_id
+const createAdmin = async (req, res) => {
+  if (!req.user || !req.user.is_admin) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  const { employee_id } = req.body;
+  if (!employee_id) {
+    return res.status(400).json({ error: 'Employee ID is required' });
+  }
+  try {
+    // Check if user exists
+    const userRes = await pool.query('SELECT * FROM users WHERE employee_id = $1', [employee_id]);
+    if (!userRes.rows[0]) {
+      return res.status(404).json({ error: 'User with this employee ID not found' });
+    }
+    // Promote to admin
+    await pool.query('UPDATE users SET is_admin = true WHERE employee_id = $1', [employee_id]);
+    res.json({ message: 'User promoted to admin successfully' });
+  } catch (err) {
+    console.error('Create admin error:', err);
     return res.status(500).json({ error: 'Database error' });
   }
 };
@@ -213,4 +240,4 @@ const resetPassword = async (req, res) => {
   }
 };
 
-module.exports = { signup, login, signupWithOtp, verifyOtp, logout, forgotPassword, verifyForgotOtp, resetPassword };
+module.exports = { signup, login, signupWithOtp, verifyOtp, logout, forgotPassword, verifyForgotOtp, resetPassword, createAdmin };
